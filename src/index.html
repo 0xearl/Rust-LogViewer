@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log Viewer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+        h1 {
+            text-align: center;
+            padding: 20px;
+            background-color: #4CAF50;
+            color: white;
+            margin: 0;
+        }
+        #log-tabs {
+            list-style-type: none;
+            margin: 0;
+            padding: 10px;
+            background-color: #333;
+            display: flex;
+            justify-content: center;
+        }
+        #log-tabs li {
+            margin: 0 15px;
+        }
+        #log-tabs li a {
+            text-decoration: none;
+            color: white;
+            padding: 10px;
+            background-color: #555;
+            border-radius: 5px;
+        }
+        #log-tabs li a:hover {
+            background-color: #888;
+        }
+        #filter-container {
+            text-align: center;
+            margin: 20px;
+        }
+        #log-content {
+            max-width: 80%;
+            margin: 20px auto;
+            padding: 10px;
+            background-color: #fff;
+            border-radius: 5px;
+            height: 400px;
+            overflow-y: scroll;
+            border: 1px solid #ddd;
+        }
+        .log-entry {
+            padding: 5px;
+            border-bottom: 1px solid #eee;
+        }
+        .log-entry.error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .log-entry.warn {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .log-entry.info {
+            background-color: #cce5ff;
+            color: #004085;
+        }
+    </style>
+</head>
+<body>
+    <h1>Real-Time Log Viewer</h1>
+
+    
+    <ul id="log-tabs"></ul>
+    <!-- <input type="text" id="search-box" placeholder="Search logs..." oninput="filterLogs()"> -->
+    <div id="filter-container">
+        <label for="log-level-filter">Filter by Log Level:</label>
+        <select id="log-level-filter">
+            <option value="all">All</option>
+            <option value="error">Error</option>
+            <option value="warn">Warning</option>
+            <option value="info">Info</option>
+        </select>
+    </div>
+    <div id="log-content"></div>
+
+    <script>
+        const logTabs = document.getElementById('log-tabs');
+        const logOutput = document.getElementById('log-content');
+        const logLevelFilter = document.getElementById('log-level-filter');
+        let eventSource;  // Keep track of the current EventSource
+    
+        // Fetch the list of available log files
+        fetch('/list_logs')
+            .then(response => response.json())
+            .then(data => {
+                const logFiles = data.log_files;
+                logFiles.forEach(logFile => {
+                    // General Log for known logs, else use the filename
+                    const tabName = (logFile === 'error.log' || logFile === 'access.log') ? 'General Log' : logFile;
+    
+                    // Create a tab element
+                    const tab = document.createElement('li');
+                    const link = document.createElement('a');
+                    link.href = `#${logFile}`;
+                    link.textContent = tabName;
+    
+                    // Attach the `loadLogFile` function to the `onclick` event using an anonymous function
+                    link.onclick = () => loadLogFile(logFile);
+    
+                    tab.appendChild(link);
+                    logTabs.appendChild(tab);
+                });
+            });
+    
+        // Function to load logs from the specified log file
+        function loadLogFile(logFile) {
+            // Close any previous EventSource to prevent multiple listeners
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+    
+            // Create a new EventSource for the selected log file
+            eventSource = new EventSource(`/logs/${logFile}`);
+    
+            // On receiving a message from the server, append the log entry
+            eventSource.onmessage = event => {
+                const logEntry = JSON.parse(event.data);
+                appendLog(logEntry);
+            };
+    
+            eventSource.onerror = () => {
+                console.error('Failed to connect to the event source');
+            }
+        }
+    
+        // Append a log entry to the log output area
+        function appendLog(logEntry) {
+            console.log("appending log", logEntry);
+            const logElement = document.createElement('div');
+            logElement.classList.add('log-entry', logEntry.level.toLowerCase());
+    
+            logElement.innerHTML += `[${logEntry.timestamp}] ${logEntry.level.toUpperCase()}: ${logEntry.message}<br><br>`;
+            logOutput.appendChild(logElement);
+            logOutput.scrollTop = logOutput.scrollHeight; // Auto-scroll to the bottom
+        }
+
+        function filterLogs() {
+            const searchBox = document.getElementById('search-box');
+            const filter = searchBox.value.toLowerCase();
+            const logEntries = document.getElementsByClassName('log-entry');
+    
+            for (const logEntry of logEntries) {
+                const logText = logEntry.textContent || logEntry.innerText;
+                if (logText.toLowerCase().includes(filter)) {
+                    logEntry.style.display = '';
+                } else {
+                    logEntry.style.display = 'none';
+                }
+            }
+        }
+
+        logLevelFilter.addEventListener('change', () => {
+            const filterValue = logLevelFilter.value;
+            const logEntries = document.querySelectorAll('.log-entry');
+            logEntries.forEach(entry => {
+                if (filterValue === 'all') {
+                    entry.style.display = 'block';  // Show all logs
+                } else if (!entry.classList.contains(filterValue)) {
+                    entry.style.display = 'none';  // Hide logs that don't match filter
+                } else {
+                    entry.style.display = 'block';  // Show logs that match filter
+                }
+            });
+        });
+    </script>
+</body>
+</html>
