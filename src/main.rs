@@ -4,17 +4,19 @@ mod routes;
 mod config;
 
 use actix_web::{App, HttpServer, web};
-use log_parser::LogEntry;
+use log_parser::LogType;
 use tokio::sync::broadcast;
 use crate::config::Config;
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
 
+    env_logger::init();
+
     let config = Config::from_file("./config.json");
 
     // Create the broadcast channel for LogEntry
-    let (tx, _) = broadcast::channel::<LogEntry>(100);
+    let (tx, _) = broadcast::channel::<LogType>(100);
     let log_channel = tx.clone();
 
     let log_folder = config.log_folder.clone();

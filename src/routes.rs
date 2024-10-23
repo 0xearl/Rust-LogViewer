@@ -2,11 +2,12 @@ use actix_web::{web, HttpResponse};
 use serde_json::json;
 use std::fs;
 use tokio::sync::broadcast;
-use crate::log_parser::LogEntry;
+use crate::log_parser::LogType;
 use crate::log_watcher::watch_log_file;
 use actix_web::web::Bytes;
 use std::path::PathBuf;
 use async_stream::stream;
+use log::{debug, error, info};
 
 pub fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.route("/", web::get().to(index))
@@ -42,17 +43,20 @@ async fn list_logs(log_folder: web::Data<String>) -> HttpResponse {
 async fn stream_logs(
     log_folder: web::Data<String>,
     file_name: web::Path<String>,
-    log_channel: web::Data<broadcast::Sender<LogEntry>>,
+    log_channel: web::Data<broadcast::Sender<LogType>>,
 ) -> HttpResponse {
     let log_folder = log_folder.get_ref();
     let log_file_path = PathBuf::from(format!("{}/{}", log_folder, file_name)); 
+    let _file_name = file_name.to_string();
 
     let log_channel_clone = log_channel.get_ref().clone();  // Dereference and clone Sender<LogEntry>
 
     // Dynamically watch the requested log file
+    debug!("Watching log file: {:?}", log_file_path);
+    debug!("Log file name: {}", _file_name);
     tokio::spawn(async move {
 
-        watch_log_file(&log_file_path, log_channel_clone).await.unwrap();
+        watch_log_file(&log_file_path, log_channel_clone, _file_name.clone()).await.unwrap();
     });
 
     // Subscribe to the broadcast channel to stream logs to the client via SSE
@@ -60,6 +64,7 @@ async fn stream_logs(
     let log_stream = stream! {
         while let Ok(log_entry) = rx.recv().await {
             let log_json = serde_json::to_string(&log_entry).unwrap();
+            debug!("Sending log entry: {}", log_json);
             yield Ok::<_, actix_web::Error>(Bytes::from(format!("data: {}\n\n", log_json)));
         }
     };
