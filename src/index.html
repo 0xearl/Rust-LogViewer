@@ -77,7 +77,6 @@
 
     
     <ul id="log-tabs"></ul>
-    <!-- <input type="text" id="search-box" placeholder="Search logs..." oninput="filterLogs()"> -->
     <div id="filter-container">
         <label for="log-level-filter">Filter by Log Level:</label>
         <select id="log-level-filter">
@@ -86,6 +85,10 @@
             <option value="warn">Warning</option>
             <option value="info">Info</option>
         </select>
+    </div>
+    <div style="display: flex; justify-content: center;">
+        <label for="search-box">Search</label>
+        <input type="text" id="search-box" placeholder="Search logs..." oninput="filterLogs()">
     </div>
     <div id="log-content"></div>
 
@@ -144,9 +147,17 @@
         function appendLog(logEntry) {
             console.log("appending log", logEntry);
             const logElement = document.createElement('div');
-            logElement.classList.add('log-entry', logEntry.level.toLowerCase());
+            if ( logEntry.ErrorLog ) {
+                let entry = logEntry.ErrorLog;
+                logElement.innerHTML += `DATE & TIME: <b>${entry.timestamp}</b><br> LEVEL: <b>${entry.level.toUpperCase()}</b><br> MESSAGE: <b>${entry.message}</b><br><br>`;
+                logElement.classList.add('log-entry', entry.level.toLowerCase());
+            } else if ( logEntry.AccessLog ) {
+                let entry = logEntry.AccessLog;
+                logElement.innerHTML += `DATE & TIME: <b>${entry.timestamp}</b><br>METHOD: <b>${entry.method}</b><br>IP_ADDRESS: <b>${entry.ip_address}<b/><br>REQUEST: <b>${entry.path}</b><br>STATUS: <b>${entry.status}</b><br>REQUEST VERSION: <b>${entry.http_version}</b><br>RESPONSE SIZE: <b>${entry.response_size}</b><br><br>`;
+                logElement.classList.add('log-entry', 'info');
+            }
     
-            logElement.innerHTML += `[${logEntry.timestamp}] ${logEntry.level.toUpperCase()}: ${logEntry.message}<br><br>`;
+            
             logOutput.appendChild(logElement);
             logOutput.scrollTop = logOutput.scrollHeight; // Auto-scroll to the bottom
         }
